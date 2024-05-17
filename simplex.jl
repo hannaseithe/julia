@@ -12,47 +12,29 @@ function simTabCon(tab)
         simTab(tab,nb,b,b+1,nb+b+1)
 end
 
-Base.copy(t::simTab) = simTab(t.tab,t.nb,t.b,t.gce,t.rs)
+Base.copy(t::simTab) = simTab(copy(t.tab),t.nb,t.b,t.gce,t.rs)
 
-
-function selectPivotColumn(t)
-    #iterate over nonbase var columns and base var rows to find pivot columns
-    result = [1,1]
-    for i in 1:t.b
-        for j in 1:t.nb
-            if (t.tab[i,j] != 0)
-                if t.tab[result...] != 0 
-                    old = (t.tab[result[1],t.rs]*t.tab[t.gce,result[2]])/t.tab[result...]
-                    new = (t.tab[i,t.rs]*t.tab[t.gce,j])/t.tab[i,j]
-                    if new > old
-                        result = [i,j]
-                    end
-                else 
-                    result = [i,j]
-                end
-            end
-        end
-    end
-    return result[2]
-end
 
 function selectPivotElement(t) 
-    col = selectPivotColumn(t)
-    val = 0
-    ind = 0
-    for i in 1:t.b
-        if (val == 0) & (t.tab[i,col] != 0)
-            val = t.tab[i,t.b]/t.tab[i,col]
-            ind = i
-        else 
-            new = t.tab[i,t.b]/t.tab[i,col]
-            if new < val
-                val = new
-                ind = i
-            end
+    gce = t.tab[t.gce,1]
+    indexCol = 1
+    for i in 2:t.nb
+        if gce > t.tab[t.gce,i]
+            indexCol = i
+            gce = t.tab[t.gce,i]
         end
-    end
-    return [ind,col]
+    end    
+    indexRow = 1
+    quot = t.tab[1,t.rs]/t.tab[1,indexCol]
+    for i in 2:t.b
+        
+        if quot > t.tab[i,t.rs]/t.tab[i,indexCol]
+            indexRow = i
+            quot = t.tab[i,t.rs]/t.tab[i,indexCol]
+        end    
+        println(quot)
+    end    
+    return [indexRow, indexCol]
 end
 
 function gceUnderZero(t)
@@ -66,35 +48,47 @@ function gceUnderZero(t)
 end
 
 function simplex(t)
-    piv = selectPivotElement(t)
-    nt = copy(t)
+
+    #piv = [3,2]
+    
     index = 0
-    while (gceUnderZero(t)) & (index < 30)
-        println(index)
+   
+    while (gceUnderZero(t)) & (index < 3)
+        nt = copy(t)
+        piv = selectPivotElement(t)
+        println(piv)
         index = index + 1
         for i in 1:t.rs
-            t.tab[piv[1],i] = t.tab[piv[1],i]/t.tab[piv...]
+            println(i)
+            println(piv...)
+            println(t.tab[piv[1],i]/t.tab[piv...])
+            nt.tab[piv[1],i] = t.tab[piv[1],i]/t.tab[piv...]
         end
         for i in 1:t.gce
-            t.tab[i, piv[2]] = -t.tab[i, piv[2]]/t.tab[piv...]
+            nt.tab[i, piv[2]] = -t.tab[i, piv[2]]/t.tab[piv...]
         end
-        t.tab[piv...] = 1/t.tab[piv...]
+        nt.tab[piv...] = 1/t.tab[piv...]
         for i in 1:t.gce
             for j in 1:t.rs
-                if (i != piv[1]) & (j != piv[2])
-                t.tab[i,j] = t.tab[i,j] - t.tab[piv[1],j] * t.tab[i,piv[2]] / t.tab[piv...]
+                if (i != piv[1])
+                    nt.tab[i,j] = t.tab[i,j] - t.tab[piv[1],j] * t.tab[i,piv[2]] / t.tab[piv...]
                 end
             end
         end
+        t = nt
     end
+    
     println(t.tab)
-
 end
 
 tab1 = [5 8 1 0 0 700 0
 1 1 0 1 0 100 0
 0 1 0 0 1 60 0
 -1 -2 0 0 0 0 0]
+tab2 = [20. 10. 1. 0. 0. 8000. 0
+4. 5. 0. 1. 0. 2000. 0
+6. 15. 0. 0. 1. 4500. 0
+-16. -32. 0. 0. 0. 0. 0]
 
-stab1 = simTabCon(tab1)
-simplex(stab1)
+stab2 = simTabCon(tab2)
+simplex(stab2)
