@@ -22,10 +22,10 @@ function PowellWolfe(f, x, s, fx, gfx;
     sigma = 1
     if f(x+sigma*s) - fx <= gamma*sigma*s'*gfx
         # Schritt 3
-        println("1.If")
+    
         fx_, gfx_ = f(x+sigma*s;evalGrad=true)
         if gfx_' * s >= eta * gfx' * s
-            println("returned 1")
+        
             return sigma
         end
         #Schritt 4
@@ -41,7 +41,7 @@ function PowellWolfe(f, x, s, fx, gfx;
     #Schritt 5
 
 
-    for i in 1:400 
+    for i in 1:10 
         sigma = sigmaMinus 
         fx_, gfx_ = f(x+sigma*s; evalGrad=true)
         if gfx_' * s >= eta * gfx' * s
@@ -54,6 +54,7 @@ function PowellWolfe(f, x, s, fx, gfx;
             sigmaPlus = sigma
         end
     end
+    #display(sigma)
     return sigma
 
 end

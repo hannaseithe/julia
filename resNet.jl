@@ -2,6 +2,8 @@ using ForwardDiff
 using Random
 using PlotlyJS
 using LinearAlgebra
+using Preferences
+using Flux
 include("gradient.jl")
 
 
@@ -18,8 +20,13 @@ i.e. Powell-Wolfe stepsize
 
 """
 
+set_preferences!(ForwardDiff, "nansafe_mode" => true)
 
-function Sigmoid(y)
+
+
+
+
+function Sigma(y)
     return 1 / (1+exp(-y))
     #return 0.5 * (y + sqrt(y^2 + 4))
 
@@ -31,19 +38,22 @@ end
 function Klassifier(p,P)
     #we assume that W^k \in \RR^{2 x 2} and b_k \in \RR^2 \forall k
 
-    K = Int64(length(P)/6)
-    if 6*K != length(P)
+    K = Int64((length(P)-6)/12)
+    #=if 12*K != length(P)
         AssertionError("length(P) must be multiple of 6")
-    end
+    end=#
 
     
-    y = p
-    for i in 1:K
-        y = [y[1] + Sigmoid(P[i:i+1]'*y + P[i+2]),
-        y[2] + Sigmoid(P[i+3:i+4]'*y + P[i+5])]
+    y = [p;0]
+    for i = 1:12:K*12
+        y = [Sigma(P[i:i+2]'*y + P[i+3]),
+        Sigma(P[i+4:i+6]'*y + P[i+7]),
+        Sigma(P[i+8:i+10]'*y + P[i+11])]
     end
+    o = reshape(P[K*12+1:length(P)],(2,3))
+    f = o*y
 
-    return y
+    return f
 
 end
 
@@ -73,10 +83,15 @@ end
 function Loss(P,p,lp)
     result = 0
     n = size(p,2)
+    
     for i in 1:n
-        result = result + norm(Klassifier(p[:,i],P) - lp[:,i])^2
+        delta = Klassifier(p[:,i],P) - lp[:,i]
+        result = result + norm(delta)^2
+        
+        #result = result + Flux.crossentropy(Klassifier(p[:,i],P), lp[:,i])
     end
-    return 1/(2*n)*result
+    return (1/(2*n))*result
+    #return result
 end
 
 
@@ -84,8 +99,13 @@ end
 function Loss_fix_p_lp(p,lp)
 
     function theLoss(P;evalGrad=false)
-#TODO fill
-      
+        if evalGrad
+            grad = ForwardDiff.gradient(theLoss, P)
+    
+            return Loss(P,p,lp), grad
+        else
+            return Loss(P,p,lp)
+        end
     end
 
     return theLoss
@@ -114,23 +134,25 @@ end
 # 1 -> rot, 0 -> blau
 function classify(p,Klassifier)
     F = Klassifier(p)
+
     return 1.0*(F[1] > F[2])
+    #return min(1.0,max(0.0,(F[1] - F[2]+1)*0.5))
 end
 
 
 ####################################################################
 ############## Now the code starts
 
-
+Random.seed!(1234);
 # a function to generate the exact labels
-fex_labels = x->3*x.*x
+fex_labels = x->3*x.*(1 .- x)
 
 
 #TODO fill generation of data ( p,l(p) ) and fill training -> final result: P
 function g(x)
-    return 3*x*(1-x)
+    return 2*x.*(1 .- 1.2x)
 end
-N = 10
+N = 150
 p = rand(2,N)
 r = [1,0]
 b = [0,1]
@@ -139,30 +161,28 @@ for i in 1:N
     lp[1:2,i]= (p[2,i] < g(p[1,i])) ? r : b
 end
 
+display(p)
 display(lp)
 
-function theLoss(P;evalGrad=false)
-    function Loss_(P)
-        return Loss(P,p,lp)
-    end
-    if evalGrad
-        return Loss_(P), ForwardDiff.gradient(Loss_, P)
-    else
-        return Loss_(P)
-    end
-end
+Loss_ = Loss_fix_p_lp(p,lp)
+rng = MersenneTwister(1234);
+pt=randexp!(rng,zeros(42))
+display(pt)
 
-P,xfinal = GradientDecent(theLoss, ones(18), 1e-4, 1000;stepMethod="PowellWolfe")
+P,xfinal = GradientDecent(Loss_, pt, 1e-5, 5000;stepMethod="PowellWolfe")
+println(P)
+println("Loss Wert ", Loss_(P))
+#P[1] = P[1]+50
 
 
 
 
 ########################################################################
 theKlassifier = Klassifier_Fix_Parameters(P);
-
+display(theKlassifier([0.1,0.5]))
 
 #plotting with NP points per direction
-NP = 50
+NP = 40
 x = y = LinRange(0,1,NP)
 x = repeat(x,NP)
 y = repeat(y',NP)[:]
@@ -184,7 +204,7 @@ class = PlotlyJS.scatter(;x=x,y=y,
 
 # plot the sepration line for the exakt labels
 u = LinRange(0,1,100)
-sepa = PlotlyJS.scatter(;x=u,y=min.(1.0,fex_labels(u)),
+sepa = PlotlyJS.scatter(;x=u,y=min.(1.0,g(u)),
           mode="lines", line_color=:red,
          fill="tonexty",
          name="exactClassifier")
@@ -193,11 +213,14 @@ sepa = PlotlyJS.scatter(;x=u,y=min.(1.0,fex_labels(u)),
 
 
 # plot the data that was used for training
+display(p)
+c2 = lp[1,:]
 data = PlotlyJS.scatter(;x=p[1,:],y=p[2,:],
     mode="markers",
     marker=Dict(:mode=>"markers",
                 :size=>15,
-                :color => "rgb(0,0,0)",
+                :colorscale=>[[0,"rgb(0,0,255)"],[1,"rgb(255,0,0"]],
+                :color => c2,
                 ),
     name="usedData")         
 
@@ -210,4 +233,3 @@ data = PlotlyJS.scatter(;x=p[1,:],y=p[2,:],
 
   #Klassifier([1;1],ones(18))
   #display(Loss(ones(18),[1,1],[1,0]))
-  
