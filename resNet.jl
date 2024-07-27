@@ -152,13 +152,19 @@ fex_labels = x->3*x.*(1 .- x)
 function g(x)
     return 2*x.*(1 .- 1.2x)
 end
-N = 150
+
+function h(x)
+    return ((x[1]-0.4)^2+(x[2]-0.4)^2 < 0.06)
+end   
+    
+N = 200
 p = rand(2,N)
 r = [1,0]
 b = [0,1]
 lp = Matrix(undef,2,N)
 for i in 1:N
-    lp[1:2,i]= (p[2,i] < g(p[1,i])) ? r : b
+    #lp[1:2,i]= (p[2,i] < g(p[1,i])) ? r : b
+    lp[1:2,i]= h(p[1:2,i]) ? r : b
 end
 
 display(p)
@@ -169,7 +175,7 @@ rng = MersenneTwister(1234);
 pt=randexp!(rng,zeros(42))
 display(pt)
 
-P,xfinal = GradientDecent(Loss_, pt, 1e-5, 5000;stepMethod="PowellWolfe")
+P,xfinal = GradientDecent(Loss_, pt, 1e-5, 10000;stepMethod="PowellWolfe")
 println(P)
 println("Loss Wert ", Loss_(P))
 #P[1] = P[1]+50
@@ -203,11 +209,11 @@ class = PlotlyJS.scatter(;x=x,y=y,
   
 
 # plot the sepration line for the exakt labels
-u = LinRange(0,1,100)
+#=u = LinRange(0,1,100)
 sepa = PlotlyJS.scatter(;x=u,y=min.(1.0,g(u)),
           mode="lines", line_color=:red,
          fill="tonexty",
-         name="exactClassifier")
+         name="exactClassifier")=#
 
 
 
@@ -229,7 +235,7 @@ data = PlotlyJS.scatter(;x=p[1,:],y=p[2,:],
   
 
 
-  PlotlyJS.plot([sepa,class,data],legend) 
+  PlotlyJS.plot([class,data],legend) 
 
   #Klassifier([1;1],ones(18))
   #display(Loss(ones(18),[1,1],[1,0]))

@@ -41,6 +41,7 @@ function GradientDecent(f,x0,tol,maxit;
     if collectIterates
         return xk,kfinal,itM
     end
+    println("Number of Gradient Iterations ",kfinal)
     println("Gradient", norm(gfx))
 
     return xk, kfinal
